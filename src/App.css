@@ -1,38 +1,136 @@
-.App {
-  text-align: center;
+/* Base styles */
+body, html {
+  height: 100%;
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #121212;
+  color: white;
+  overflow-x: hidden;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   min-height: 100vh;
+  padding: 20px;
+}
+
+.app-container {
+  background-color: #242424;
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+  width: 100%;
+  max-width: 500px; /* Maximum width of the container */
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #e0e0e0;
+  text-align: center;
+}
+
+.connect-wallet-btn,
+.action-btn,
+.direction-toggle { /* Unified button and dropdown styles */
+  background-color: #560bad;
   color: white;
+  border: none;
+  padding: 15px 30px;
+  margin: 10px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  font-size: 1rem;
+  width: 100%; /* Full width */
+  -webkit-appearance: none; /* Removes default styles for select */
+  -moz-appearance: none;
+  appearance: none;
+  position: relative;
 }
 
-.App-link {
-  color: #61dafb;
+.connect-wallet-btn:hover,
+.action-btn:hover,
+.direction-toggle:hover { /* Hover states */
+  background-color: #3a0ca3;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.connect-wallet-btn:active,
+.action-btn:active,
+.direction-toggle:active { /* Active states */
+  background-color: #7209b7;
+  transform: scale(0.98);
+}
+
+.input-field {
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background-color: #333;
+  color: white;
+  width: 100%; /* Full width inputs */
+  font-size: 1rem;
+}
+
+.input-field::placeholder {
+  color: #bbb;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #7209b7;
+}
+
+.direction-toggle::after { /* Custom dropdown arrow */
+  content: '▼';
+  font-size: 1rem;
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: white; /* Adjusted for visibility */
+}
+
+/* Media Queries for responsiveness */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 20px;
   }
-  to {
-    transform: rotate(360deg);
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .connect-wallet-btn,
+  .action-btn,
+  .input-field,
+  .direction-toggle {
+    padding: 10px 20px;
+  }
+
+  .direction-toggle::after {
+    right: 15px;
+  }
+}
+
+@media only screen and (max-width: 600px) {
+  .app-container {
+    border-radius: 10px;
+  }
+
+  .connect-wallet-btn,
+  .action-btn,
+  .input-field,
+  .direction-toggle {
+    font-size: 0.9rem;
+    padding: 10px;
   }
 }
