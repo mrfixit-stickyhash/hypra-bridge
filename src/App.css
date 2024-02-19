@@ -2,9 +2,9 @@
 body, html {
   height: 100%;
   margin: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #121212;
-  color: white;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(145deg, #121212, #1D1D1D);
+  color: #FFFFFF;
   overflow-x: hidden;
 }
 
@@ -17,120 +17,94 @@ body, html {
 }
 
 .app-container {
-  background-color: #242424;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
   padding: 40px;
-  border-radius: 15px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 500px; /* Maximum width of the container */
+  max-width: 500px;
 }
 
-h1 {
+/* Artistic text effect using CSS filters */
+.artistic-text {
   font-size: 2rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #e0e0e0;
+  color: #BB86FC; /* Fallback color */
+  filter: drop-shadow(2px 4px 6px #7C4DFF);
+  margin-bottom: 30px;
   text-align: center;
 }
 
-.connect-wallet-btn,
-.action-btn,
-.direction-toggle { /* Unified button and dropdown styles */
-  background-color: #560bad;
-  color: white;
+/* Buttons and inputs with a dark theme aesthetic */
+button, select, input[type="text"] {
+  background: #333333;
+  color: #BB86FC;
   border: none;
-  padding: 15px 30px;
-  margin: 10px 0;
-  border-radius: 8px;
+  padding: 12px 20px;
+  margin: 8px 0;
+  border-radius: 25px;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.1s;
+  transition: transform 0.2s, box-shadow 0.2s;
   font-size: 1rem;
-  width: 100%; /* Full width */
-  -webkit-appearance: none; /* Removes default styles for select */
-  -moz-appearance: none;
-  appearance: none;
-  position: relative;
+  width: 100%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 
-.connect-wallet-btn:hover,
-.action-btn:hover,
-.direction-toggle:hover { /* Hover states */
-  background-color: #3a0ca3;
+button:hover, select:hover, input[type="text"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
-.connect-wallet-btn:active,
-.action-btn:active,
-.direction-toggle:active { /* Active states */
-  background-color: #7209b7;
-  transform: scale(0.98);
+button:active, select:active, input[type="text"]:active {
+  transform: translateY(1px);
 }
 
-.input-field {
-  padding: 15px;
-  margin: 10px 0;
-  border-radius: 8px;
-  border: 1px solid #333;
-  background-color: #333;
-  color: white;
-  width: 100%; /* Full width inputs */
-  font-size: 1rem;
+/* Specific enhancements for buttons */
+.connect-wallet-btn, .action-btn {
+  background: linear-gradient(145deg, #7C4DFF, #BB86FC);
+  color: #FFFFFF;
 }
 
-.input-field::placeholder {
-  color: #bbb;
+/* Input styling for dark mode */
+input[type="text"] {
+  background-color: #2C2C2C;
+  color: #BB86FC;
+  border: 2px solid #7C4DFF;
 }
 
-.input-field:focus {
-  outline: none;
-  border-color: #7209b7;
+input[type="text"]::placeholder {
+  color: #A1A1A1;
 }
 
-.direction-toggle::after { /* Custom dropdown arrow */
-  content: '▼';
-  font-size: 1rem;
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: white; /* Adjusted for visibility */
+input[type="text"]:focus {
+  border-color: #BB86FC;
 }
 
-/* Media Queries for responsiveness */
+/* Responsive adjustments */
 @media (max-width: 768px) {
   .app-container {
     padding: 20px;
   }
 
-  h1 {
-    font-size: 1.5rem;
+  .artistic-text {
+    font-size: 1.8rem;
   }
 
-  .connect-wallet-btn,
-  .action-btn,
-  .input-field,
-  .direction-toggle {
-    padding: 10px 20px;
-  }
-
-  .direction-toggle::after {
-    right: 15px;
+  button, select, input[type="text"] {
+    padding: 10px 15px;
   }
 }
 
 @media only screen and (max-width: 600px) {
   .app-container {
-    border-radius: 10px;
+    border-radius: 15px;
   }
 
-  .connect-wallet-btn,
-  .action-btn,
-  .input-field,
-  .direction-toggle {
+  button, select, input[type="text"] {
     font-size: 0.9rem;
-    padding: 10px;
+    padding: 8px 14px;
   }
 }
