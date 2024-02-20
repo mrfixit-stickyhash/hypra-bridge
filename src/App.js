@@ -92,53 +92,87 @@ function App() {
   }
   
 
+  async function switchNetwork() {
+    const chainId = '0x13881'; // Hexadecimal for 80001, which is the chain ID for Polygon Mumbai Testnet
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: chainId }],
+      });
+    } catch (switchError) {
+      // This error code indicates that the chain has not been added to MetaMask.
+      if (switchError.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: chainId,
+                rpcUrl: 'https://matic-mumbai.chainstacklabs.com', // Example RPC URL, replace with your preferred one
+                // Add other chain parameters as needed
+              },
+            ],
+          });
+        } catch (addError) {
+          // Handle errors when adding a new chain
+          console.error('Error adding new chain:', addError);
+        }
+      } else {
+        // Handle other errors
+        console.error('Error switching networks:', switchError);
+      }
+    }
+  }
   
   
   
   async function mintTokens() {
     console.log("Minting tokens...");
-
+  
     if (!web3) {
-        console.error("Web3 is not initialized");
-        return;
+      console.error("Web3 is not initialized");
+      return;
     }
-
-    // Assuming 'amount' is a variable holding the user-specified amount
-    // Convert amount to Wei
+  
+    // Ensure network switch
+    await switchNetwork();
+  
     const amountInWei = web3.utils.toWei(amount.toString(), 'ether');
-
-    // Dynamically fetch the current nonce for the userAccount
+    // The nonce here might not be the one you want to use for actionId; ensure it matches your contract logic
     const nonce = await web3.eth.getTransactionCount(userAccount, 'latest');
-
     const bridgeContract = new web3.eth.Contract(polygonBridgeABI, polygonBridgeAddress);
-
-    // Fetch current gas price
     const gasPrice = await web3.eth.getGasPrice();
-
-    // Log parameters for debugging
-    console.log(`Minting to: ${recipient}, Amount: ${amountInWei}, Nonce: ${nonce}, GasPrice: ${gasPrice}`);
-
-    try {
-        // Manual gas limit - adjust based on contract needs and testing
+  
+    // Correctly await the call to getActionId and ensure it returns a bytes32 value
+    const actionId = await bridgeContract.methods.getActionId(80001, nonce, recipient, amountInWei).call();
+  
+    // Proceed to check authorization and consumption of the actionId
+    const isAuthorized = await bridgeContract.methods.authorizedActions(actionId).call();
+    const isConsumed = await bridgeContract.methods.consumedActions(actionId).call();
+  
+    if (isAuthorized && !isConsumed) {
+      try {
         const manualGasLimit = 200000;
-
-        // Execute the mint function with the manual gas limit
-        await bridgeContract.methods.mint(recipient, nonce, amountInWei) // Ensure the order of parameters matches your contract's method signature
-            .send({ from: userAccount, gasPrice, gas: manualGasLimit }) // Using manual gas limit
-            .on('transactionHash', hash => console.log(`Transaction hash: ${hash}`))
-            .on('receipt', receipt => {
-                console.log('Transaction receipt:', receipt);
-                alert('Tokens minted successfully!');
-            })
-            .on('error', (error, receipt) => {
-                console.error('Error minting tokens:', error);
-                alert('Mint failed. See console for details.');
-            });
-    } catch (error) {
+        await bridgeContract.methods.mint(recipient, nonce, amountInWei)
+          .send({ from: userAccount, gasPrice, gas: manualGasLimit })
+          .on('transactionHash', hash => console.log(`Transaction hash: ${hash}`))
+          .on('receipt', receipt => {
+            console.log('Transaction receipt:', receipt);
+            alert('Tokens minted successfully!');
+          })
+          .on('error', (error, receipt) => {
+            console.error('Error minting tokens:', error);
+            alert('Mint failed. See console for details.');
+          });
+      } catch (error) {
         console.error("Error during minting: ", error);
+      }
+    } else {
+      console.error("Action not authorized or already consumed.");
+      alert("Minting unauthorized or action already consumed.");
     }
-}
-
+  }
+  
 
   
   
