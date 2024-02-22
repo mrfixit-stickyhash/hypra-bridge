@@ -52,6 +52,29 @@ function App() {
     }
   }
 
+  async function switchNetwork(targetChainId) {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: Web3.utils.toHex(targetChainId) }],
+      });
+    } catch (switchError) {
+      console.error('Error switching networks:', switchError);
+    }
+  }
+
+  async function ensureCorrectNetwork() {
+    const hypraChainId = 622277; // Correct chain ID for Hypra
+    const polygonChainId = 80001; // Chain ID for Polygon Mumbai Testnet
+    const currentChainId = await web3.eth.getChainId();
+
+    if (bridgeDirection === 'hypraToPolygon' && currentChainId !== hypraChainId) {
+      await switchNetwork(hypraChainId);
+    } else if (bridgeDirection === 'polygonToHypra' && currentChainId !== polygonChainId) {
+      await switchNetwork(polygonChainId);
+    }
+  }
+
   async function depositTokens() {
     if (!web3) {
       console.log("Web3 is not initialized");
@@ -62,65 +85,36 @@ function App() {
     const contract = new web3.eth.Contract(lockboxABI, lockboxAddress);
   
     try {
-      const gasPrice = await web3.eth.getGasPrice(); // Fetch the current gas price
+      const gasPrice = await web3.eth.getGasPrice();
+      // Ensure the 'from' address is specified in the transaction parameters
       await contract.methods.deposit(web3.utils.toWei(amount, 'ether'))
-        .send({ from: userAccount, gasPrice }); // Specify gasPrice for legacy transaction format
-      console.log("Deposit successful");
+        .send({ from: userAccount, gasPrice })
+        .on('transactionHash', hash => console.log(`Transaction hash: ${hash}`))
+        .on('receipt', receipt => {
+          console.log("Deposit successful", receipt);
+        })
+        .on('error', error => {
+          console.error("Error during deposit:", error.message);
+        });
     } catch (error) {
-      console.error("Error during deposit:", error);
+      console.error("Error during deposit:", error.message);
     }
   }
   
 
   async function burnTokens() {
-    if (!web3) {
-      console.log("Web3 is not initialized");
-      return;
-    }
+    await ensureCorrectNetwork();
     const bridgeAddress = bridgeDirection === 'hypraToPolygon' ? hypraBridgeAddress : polygonBridgeAddress;
     const bridgeABI = bridgeDirection === 'hypraToPolygon' ? hypraBridgeABI : polygonBridgeABI;
     const contract = new web3.eth.Contract(bridgeABI, bridgeAddress);
-  
+
     try {
-      const gasPrice = await web3.eth.getGasPrice(); // Fetch the current gas price
+      const gasPrice = await web3.eth.getGasPrice();
       await contract.methods.burn(recipient, web3.utils.toWei(amount, 'ether'))
-        .send({ from: userAccount, gasPrice }); // Specify gasPrice for legacy transaction format
+        .send({ from: userAccount, gasPrice });
       console.log("Burn successful");
     } catch (error) {
       console.error("Error during burn:", error);
-    }
-  }
-  
-
-  async function switchNetwork() {
-    const chainId = '0x13881'; // Hexadecimal for 80001, which is the chain ID for Polygon Mumbai Testnet
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: chainId }],
-      });
-    } catch (switchError) {
-      // This error code indicates that the chain has not been added to MetaMask.
-      if (switchError.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: chainId,
-                rpcUrl: 'https://matic-mumbai.chainstacklabs.com', // Example RPC URL, replace with your preferred one
-                // Add other chain parameters as needed
-              },
-            ],
-          });
-        } catch (addError) {
-          // Handle errors when adding a new chain
-          console.error('Error adding new chain:', addError);
-        }
-      } else {
-        // Handle other errors
-        console.error('Error switching networks:', switchError);
-      }
     }
   }
   
@@ -134,19 +128,30 @@ function App() {
       return;
     }
   
-    // Ensure network switch
-    await switchNetwork();
+    // Define targetChainId based on the bridge direction
+    // Assuming Hypra's chain ID is 622277 and Polygon Mumbai Testnet's chain ID is 80001
+    const targetChainId = bridgeDirection === 'polygonToHypra' ? 622277 : 80001;
+  
+    // Ensure network switch to the target chain before minting
+    await switchNetwork(targetChainId);
   
     const amountInWei = web3.utils.toWei(amount.toString(), 'ether');
-    // The nonce here might not be the one you want to use for actionId; ensure it matches your contract logic
+  
+    // Assuming the nonce generation logic is correct and matches your contract's expectations
     const nonce = await web3.eth.getTransactionCount(userAccount, 'latest');
-    const bridgeContract = new web3.eth.Contract(polygonBridgeABI, polygonBridgeAddress);
+  
+    // Determine the correct bridge contract based on the bridge direction
+    const bridgeContract = new web3.eth.Contract(
+      bridgeDirection === 'polygonToHypra' ? hypraBridgeABI : polygonBridgeABI,
+      bridgeDirection === 'polygonToHypra' ? hypraBridgeAddress : polygonBridgeAddress
+    );
+  
     const gasPrice = await web3.eth.getGasPrice();
   
-    // Correctly await the call to getActionId and ensure it returns a bytes32 value
-    const actionId = await bridgeContract.methods.getActionId(80001, nonce, recipient, amountInWei).call();
+    // Generate actionId based on the target chain ID for the bridge direction
+    const actionId = await bridgeContract.methods.getActionId(targetChainId, nonce, recipient, amountInWei).call();
   
-    // Proceed to check authorization and consumption of the actionId
+    // Check authorization and consumption of the actionId
     const isAuthorized = await bridgeContract.methods.authorizedActions(actionId).call();
     const isConsumed = await bridgeContract.methods.consumedActions(actionId).call();
   
@@ -173,6 +178,7 @@ function App() {
     }
   }
   
+  
 
   
   
@@ -195,9 +201,9 @@ function App() {
         <input type="text" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount to transfer" />
         <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Recipient address" />
       </div>
-      <button onClick={depositTokens} className="action-btn">Deposit Tokens</button>
-      <button onClick={burnTokens} className="action-btn">Burn Tokens</button>
-      <button onClick={mintTokens} className="action-btn">Mint Tokens</button>
+      <button onClick={depositTokens} className="action-btn">(step 1) Deposit Tokens</button>
+      <button onClick={burnTokens} className="action-btn">(step 2) Burn Tokens</button>
+      <button onClick={mintTokens} className="action-btn">(step 3) Mint Tokens</button>
     </div>
   );
 }
