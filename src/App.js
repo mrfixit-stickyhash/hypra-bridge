@@ -80,13 +80,16 @@ function App() {
       console.log("Web3 is not initialized");
       return;
     }
+  
+    // Ensure you are on the correct network for the deposit action.
+    await ensureCorrectNetwork();
+  
     const lockboxAddress = bridgeDirection === 'hypraToPolygon' ? hypraLockboxAddress : polygonLockboxAddress;
     const lockboxABI = bridgeDirection === 'hypraToPolygon' ? hypraLockboxABI : polygonLockboxABI;
     const contract = new web3.eth.Contract(lockboxABI, lockboxAddress);
   
     try {
       const gasPrice = await web3.eth.getGasPrice();
-      // Ensure the 'from' address is specified in the transaction parameters
       await contract.methods.deposit(web3.utils.toWei(amount, 'ether'))
         .send({ from: userAccount, gasPrice })
         .on('transactionHash', hash => console.log(`Transaction hash: ${hash}`))
@@ -100,6 +103,7 @@ function App() {
       console.error("Error during deposit:", error.message);
     }
   }
+  
   
 
   async function burnTokens() {
