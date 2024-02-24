@@ -243,9 +243,9 @@ return (
       <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Recipient address" />
     </div>
     {errorMessage && <div className="error-message">{errorMessage}</div>}
-    <button onClick={depositTokens} className="action-btn">Deposit Tokens</button>
-    <button onClick={burnTokens} className="action-btn">Burn Tokens</button>
-    <button onClick={mintTokens} className="action-btn">Mint Tokens</button>
+    <button onClick={depositTokens} className="action-btn">(step 1) Deposit Tokens</button>
+    <button onClick={burnTokens} className="action-btn">(step 2) Initiate Bridge</button>
+    <button onClick={mintTokens} className="action-btn">(step 3) Complete Bridge</button>
   </div>
 );
 }
