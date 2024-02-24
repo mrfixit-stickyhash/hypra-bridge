@@ -24,33 +24,44 @@ body, html {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch; /* Ensure elements stretch to fill the container */
   width: 100%;
   max-width: 500px;
 }
+.subtitle-text {
+  font-size: 1rem; /* Smaller font size for the subtitle */
+  color: #BB86FC; /* Matching the color scheme */
+  text-align: center; /* Center-align the subtitle */
+  margin-bottom: 20px; /* Space between the subtitle and the next element */
+}
 
-/* Artistic text effect using CSS filters */
 .artistic-text {
   font-size: 2rem;
-  color: #BB86FC; /* Fallback color */
+  color: #BB86FC;
   filter: drop-shadow(2px 4px 6px #7C4DFF);
   margin-bottom: 30px;
   text-align: center;
 }
 
-/* Buttons and inputs with a dark theme aesthetic */
+/* Apply box-sizing globally to ensure consistent sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Uniform sizing for input, select, and buttons */
 button, select, input[type="text"] {
   background: #333333;
   color: #BB86FC;
   border: none;
-  padding: 12px 20px;
-  margin: 8px 0;
+  padding: 12px 20px; /* Adjust padding if necessary */
+  margin-bottom: 10px; /* Consistent margin for spacing */
   border-radius: 25px;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
   font-size: 1rem;
-  width: 100%;
+  width: 100%; /* Full width */
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  height: 48px; /* Uniform height */
 }
 
 button:hover, select:hover, input[type="text"]:hover {
@@ -62,13 +73,11 @@ button:active, select:active, input[type="text"]:active {
   transform: translateY(1px);
 }
 
-/* Specific enhancements for buttons */
 .connect-wallet-btn, .action-btn {
   background: linear-gradient(145deg, #7C4DFF, #BB86FC);
   color: #FFFFFF;
 }
 
-/* Input styling for dark mode */
 input[type="text"] {
   background-color: #2C2C2C;
   color: #BB86FC;
@@ -83,6 +92,32 @@ input[type="text"]:focus {
   border-color: #BB86FC;
 }
 
+/* Error Message Styles */
+.error-message {
+  color: #FF5555;
+  font-size: 0.9rem;
+  margin-top: -5px;
+  margin-bottom: 10px;
+  text-align: left;
+  width: 100%;
+}
+
+/* Input Error Styles */
+.input-error {
+  border: 2px solid #FF5555;
+  animation: shake 0.3s;
+}
+
+@keyframes shake {
+  0% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  100% { transform: translateX(-5px); }
+}
+
+input[type="text"].input-error:focus {
+  border-color: #FF5555;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .app-container {
@@ -95,6 +130,11 @@ input[type="text"]:focus {
 
   button, select, input[type="text"] {
     padding: 10px 15px;
+    height: 40px; /* Adjusted height for smaller screens */
+  }
+
+  .error-message {
+    font-size: 0.8rem;
   }
 }
 
@@ -106,5 +146,10 @@ input[type="text"]:focus {
   button, select, input[type="text"] {
     font-size: 0.9rem;
     padding: 8px 14px;
+    height: 38px; /* Further adjusted for very small screens */
+  }
+
+  .error-message {
+    font-size: 0.75rem;
   }
 }
