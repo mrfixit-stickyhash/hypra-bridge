@@ -227,7 +227,7 @@ async function mintTokens() {
 return (
   <div className="app-container">
     <h1 className="artistic-text">HYPRA Bridge (TEST)</h1>
-    <p className="subtitle-text">This bridge allows you to send wrapped HYP (WHYP) From Hypra to Polygon</p>
+    <p className="subtitle-text">This bridge allows you to send wrapped HYP (WHYP) Between Hypra and Polygon</p>
     <button onClick={connectWallet} className="connect-wallet-btn">
       {userAccount ? 'Wallet Connected' : 'Connect Wallet'}
     </button>
