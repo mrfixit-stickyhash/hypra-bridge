@@ -82,14 +82,38 @@ function App() {
     }
   }
 
+  function isValidAmount(amount) {
+    // Convert amount to a numeric value to ensure proper comparison
+    const numericAmount = parseFloat(amount);
+    return numericAmount && numericAmount >= 0.0001;
+  }
+  
+  function isValidAddress(address) {
+    return address && address.startsWith('0x') && address.length === 42;
+  }
+  
   async function depositTokens() {
     setErrorMessage(''); // Clear any existing error messages
+    
+    if (!isValidAddress(recipient)) {
+      setErrorMessage("Invalid recipient address");
+      return;
+    }
+    
   
     if (!web3) {
       setErrorMessage("Web3 is not initialized");
       console.log("Web3 is not initialized"); // Keeping console.log for debugging purposes
       return;
     }
+  
+    // Validate amount is not empty and not lower than 0.0001
+    if (!isValidAmount(amount)) {
+      setErrorMessage("Amount must not be empty and at least 0.0001");
+      return;
+    }
+  
+    const depositAmountWei = web3.utils.toWei(amount, 'ether');
   
     // Ensure you are on the correct network for the deposit action.
     try {
@@ -100,21 +124,20 @@ function App() {
     }
   
     const tokenContract = new web3.eth.Contract(erc20TokenABI, erc20TokenAddress);
-    
+  
     try {
       // Check user's token balance
       const balance = await tokenContract.methods.balanceOf(userAccount).call();
-      const depositAmountWei = web3.utils.toWei(amount, 'ether');
-    
+  
       // Convert balance and depositAmountWei to BN and compare
       const balanceBN = new BN(balance);
       const depositAmountWeiBN = new BN(depositAmountWei);
-    
+  
       if (balanceBN.lt(depositAmountWeiBN)) {
         setErrorMessage("Insufficient token balance for deposit.");
         return;
       }
-    
+  
       const lockboxAddress = bridgeDirection === 'hypraToPolygon' ? hypraLockboxAddress : polygonLockboxAddress;
       const lockboxABI = bridgeDirection === 'hypraToPolygon' ? hypraLockboxABI : polygonLockboxABI;
       const contract = new web3.eth.Contract(lockboxABI, lockboxAddress);
@@ -137,10 +160,20 @@ function App() {
   }
   
   
-  
 
   async function burnTokens() {
     setErrorMessage(''); // Reset any previous error messages
+
+    if (!isValidAddress(recipient)) {
+      setErrorMessage("Invalid recipient address");
+      return;
+    }
+
+    if (!isValidAmount(amount)) {
+      setErrorMessage("Amount must be at least 0.0001");
+      return;
+    }
+  
 
     try {
         await ensureCorrectNetwork();
