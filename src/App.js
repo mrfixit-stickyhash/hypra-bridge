@@ -25,6 +25,7 @@ function App() {
   const [bridgeDirection, setBridgeDirection] = useState('hypraToPolygon');
   const [web3, setWeb3] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [bridgeNonce, setBridgeNonce] = useState('');
 
 
   useEffect(() => {
@@ -148,18 +149,24 @@ function App() {
         const contract = new web3.eth.Contract(bridgeABI, bridgeAddress);
 
         const gasPrice = await web3.eth.getGasPrice();
-        await contract.methods.burn(recipient, web3.utils.toWei(amount, 'ether'))
-            .send({ from: userAccount, gasPrice })
-            .on('transactionHash', hash => console.log(`Transaction hash: ${hash}`))
-            .on('receipt', () => {
-                console.log("Burn successful");
-                // Optionally, clear the error message if the transaction was successful
-                setErrorMessage('');
-            })
-            .on('error', error => {
-                console.error("Error during burn:", error);
-                setErrorMessage(`Error during burn: ${error.message}`);
-            });
+        const transaction = await contract.methods.burn(recipient, web3.utils.toWei(amount, 'ether'))
+            .send({ from: userAccount, gasPrice });
+
+        // Assuming the transaction receipt is obtained successfully
+        console.log("Burn successful");
+
+        // Extract nonce from the `ActionCreated` event
+        const actionCreatedEvent = transaction.events.ActionCreated;
+        if (actionCreatedEvent) {
+            const nonce = actionCreatedEvent.returnValues.nonce;
+            console.log(`Nonce from ActionCreated: ${nonce}`);
+
+            // Store the nonce for later use in mintTokens (this example uses React state)
+            setBridgeNonce(nonce); // Assume setBridgeNonce is a useState setter function
+        }
+
+        // Optionally, clear the error message if the transaction was successful
+        setErrorMessage('');
     } catch (error) {
         console.error("Error during burn:", error);
         setErrorMessage(`Error during burn: ${error.message}`);
@@ -172,8 +179,6 @@ function App() {
 async function mintTokens() {
   setErrorMessage(''); // Clear any existing error messages first
 
-  console.log("Minting tokens...");
-
   if (!web3) {
       setErrorMessage("Web3 is not initialized");
       console.error("Web3 is not initialized");
@@ -181,46 +186,38 @@ async function mintTokens() {
   }
 
   try {
-      // Define targetChainId based on the bridge direction
-      const targetChainId = bridgeDirection === 'polygonToHypra' ? 622277 : 80001;
+      // Determine the target network based on the bridge direction
+      const targetChainId = bridgeDirection === 'polygonToHypra' ? 622277 : 80001; // Use actual chain IDs
 
-      // Ensure network switch to the target chain before minting
+      // Ensure the wallet is on the correct network
       await switchNetwork(targetChainId);
 
-      const amountInWei = web3.utils.toWei(amount.toString(), 'ether');
-      const nonce = await web3.eth.getTransactionCount(userAccount, 'latest');
-      const bridgeContract = new web3.eth.Contract(
-          bridgeDirection === 'polygonToHypra' ? hypraBridgeABI : polygonBridgeABI,
-          bridgeDirection === 'polygonToHypra' ? hypraBridgeAddress : polygonBridgeAddress
-      );
+      const bridgeAddress = bridgeDirection === 'polygonToHypra' ? hypraBridgeAddress : polygonBridgeAddress;
+      const bridgeABI = bridgeDirection === 'polygonToHypra' ? hypraBridgeABI : polygonBridgeABI;
+      const contract = new web3.eth.Contract(bridgeABI, bridgeAddress);
 
       const gasPrice = await web3.eth.getGasPrice();
-      const actionId = await bridgeContract.methods.getActionId(targetChainId, nonce, recipient, amountInWei).call();
-      const isAuthorized = await bridgeContract.methods.authorizedActions(actionId).call();
-      const isConsumed = await bridgeContract.methods.consumedActions(actionId).call();
+      const amountInWei = web3.utils.toWei(amount.toString(), 'ether');
 
-      if (isAuthorized && !isConsumed) {
-          const manualGasLimit = 200000;
-          await bridgeContract.methods.mint(recipient, nonce, amountInWei)
-              .send({ from: userAccount, gasPrice, gas: manualGasLimit })
-              .on('transactionHash', hash => console.log(`Transaction hash: ${hash}`))
-              .on('receipt', receipt => {
-                  console.log('Transaction receipt:', receipt);
-                  setErrorMessage(''); // Clear the error message on successful transaction
-              })
-              .on('error', error => {
-                  console.error('Error minting tokens:', error);
-                  setErrorMessage(`Error minting tokens: ${error.message}`);
-              });
-      } else {
-          setErrorMessage("Minting unauthorized or action already consumed.");
-          console.error("Action not authorized or already consumed.");
-      }
+      // Use the stored nonce for the mint operation
+      await contract.methods.mint(recipient, bridgeNonce, amountInWei)
+          .send({ from: userAccount, gasPrice })
+          .on('transactionHash', hash => console.log(`Transaction hash: ${hash}`))
+          .on('receipt', receipt => {
+              console.log('Mint successful', receipt);
+              setErrorMessage(''); // Clear error message on successful transaction
+          })
+          .on('error', error => {
+              console.error('Error minting tokens:', error);
+              setErrorMessage(`Error minting tokens: ${error.message}`);
+          });
   } catch (error) {
+      console.error("Error during minting:", error);
       setErrorMessage(`Error during minting: ${error.message}`);
-      console.error("Error during minting: ", error);
   }
 }
+
+
 
 
 
