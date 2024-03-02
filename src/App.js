@@ -26,6 +26,8 @@ function App() {
   const [web3, setWeb3] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [bridgeNonce, setBridgeNonce] = useState('');
+  const [actionId, setActionId] = useState('');
+  const [frontendMessage, setFrontendMessage] = useState(''); // State to hold frontend messages
 
 
   useEffect(() => {
@@ -45,6 +47,27 @@ function App() {
     }
     initializeWeb3();
   }, []);
+
+  useEffect(() => {
+    let checkInterval = null;
+  
+    const checkAuthorization = async () => {
+      // ... your polling logic here
+    };
+  
+    if (actionId) {
+      // Only start polling if we have an action ID
+      checkInterval = setInterval(checkAuthorization, 10000);
+    }
+  
+    // Cleanup function to clear the interval when component unmounts or actionId changes
+    return () => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+      }
+    };
+  }, [actionId]); // Re-run the effect if actionId changes
+  
 
   async function connectWallet() {
     if (window.ethereum) {
@@ -173,7 +196,6 @@ function App() {
       setErrorMessage("Amount must be at least 0.0001");
       return;
     }
-  
 
     try {
         await ensureCorrectNetwork();
@@ -185,29 +207,109 @@ function App() {
         const transaction = await contract.methods.burn(recipient, web3.utils.toWei(amount, 'ether'))
             .send({ from: userAccount, gasPrice });
 
-        // Assuming the transaction receipt is obtained successfully
         console.log("Burn successful");
 
-        // Extract nonce from the `ActionCreated` event
+        // Extract action ID and nonce from the `ActionCreated` event
         const actionCreatedEvent = transaction.events.ActionCreated;
         if (actionCreatedEvent) {
+            const actionId = actionCreatedEvent.returnValues.id;
             const nonce = actionCreatedEvent.returnValues.nonce;
+            console.log(`Action ID from ActionCreated: ${actionId}`);
             console.log(`Nonce from ActionCreated: ${nonce}`);
-
-            // Store the nonce for later use in mintTokens (this example uses React state)
-            setBridgeNonce(nonce); // Assume setBridgeNonce is a useState setter function
+            
+            setActionId(actionId); // Store actionId for later use in requestAuthorization
+            setBridgeNonce(nonce); // Store nonce for later use in mintTokens
+            
+            // Optionally, clear the error message if the transaction was successful
+            setErrorMessage('');
+        } else {
+            // Handle case where the expected event is not emitted
+            setErrorMessage("Burn successful, but no ActionCreated event found.");
         }
-
-        // Optionally, clear the error message if the transaction was successful
-        setErrorMessage('');
     } catch (error) {
         console.error("Error during burn:", error);
         setErrorMessage(`Error during burn: ${error.message}`);
     }
 }
 
-  
-  
+async function requestAuthorization() {
+  if (!web3 || !actionId) {
+    setErrorMessage("Web3 not initialized or Action ID unavailable.");
+    return;
+  }
+
+  // Switch network based on bridge direction
+  const targetChainId = bridgeDirection === 'hypraToPolygon' ? 80001 : 622277;
+  await switchNetwork(targetChainId);
+
+  const contract = new web3.eth.Contract(polygonBridgeABI, polygonBridgeAddress);
+  await contract.methods.requestAuthorization(actionId)
+    .send({ from: userAccount, value: web3.utils.toWei("0.05", "ether") }) // Adjust gas cost as needed
+    .on('transactionHash', hash => {
+      console.log(`Authorization request transaction hash: ${hash}`);
+      setFrontendMessage("Authorization request sent. Waiting for approval...");
+    })
+    .on('receipt', receipt => {
+      console.log('Authorization request completed', receipt);
+      // No direct method to check authorization, proceed based on transaction success
+      if(receipt.status) {
+        console.log("Proceeding based on successful transaction.");
+        setFrontendMessage("Waiting for authorization...");
+        waitForAuthorization(actionId);
+      } else {
+        setErrorMessage("Authorization request failed.");
+      }
+    })
+    .on('error', error => {
+      console.error('Error requesting authorization:', error);
+      setErrorMessage('Error requesting authorization. Please try again.');
+    });
+}
+
+
+
+async function waitForAuthorization(actionId) {
+  if (!web3 || !actionId) {
+    setErrorMessage("Web3 not initialized or Action ID unavailable.");
+    return;
+  }
+
+  try {
+    console.log(`Checking authorization for action ID: ${actionId}`);
+
+    const bridgeAddress = bridgeDirection === 'hypraToPolygon' ? hypraBridgeAddress : polygonBridgeAddress;
+    const bridgeABI = bridgeDirection === 'hypraToPolygon' ? hypraBridgeABI : polygonBridgeABI;
+    const contract = new web3.eth.Contract(bridgeABI, bridgeAddress);
+
+    // Polling function to check for authorization
+    const checkAuthorization = async () => {
+      const isAuthorized = await contract.methods.authorizedActions(actionId).call();
+
+      if (isAuthorized) {
+        console.log('Authorization confirmed for action ID:', actionId);
+        setFrontendMessage("Authorization confirmed. Please proceed with the next step.");
+        clearInterval(checkInterval); // Stop polling
+      } else {
+        console.log('Polling for authorization...');
+      }
+    };
+
+    // Start polling for authorization every 10 seconds
+    const checkInterval = setInterval(checkAuthorization, 10000);
+  } catch (error) {
+    console.error('Error in waitForAuthorization:', error);
+    setErrorMessage(`Error: ${error.message}. Please try again.`);
+  }
+}
+
+
+
+
+
+
+
+
+ 
   
 async function mintTokens() {
   setErrorMessage(''); // Clear any existing error messages first
@@ -275,7 +377,9 @@ return (
     {errorMessage && <div className="error-message">{errorMessage}</div>}
     <button onClick={depositTokens} className="action-btn">(step 1) Deposit Tokens</button>
     <button onClick={burnTokens} className="action-btn">(step 2) Initiate Bridge</button>
-    <button onClick={mintTokens} className="action-btn">(step 3) Complete Bridge</button>
+    <button onClick={() => requestAuthorization(actionId)} className="action-btn">(step 3) Request Authorization</button>
+    <button onClick={mintTokens} className="action-btn">(step 4) Complete Bridge</button>
+    {frontendMessage && <div className="frontend-message">{frontendMessage}</div>}
   </div>
 );
 }
