@@ -153,3 +153,53 @@ input[type="text"].input-error:focus {
     font-size: 0.75rem;
   }
 }
+/* Progress Bar Container General Style */
+.progress-container {
+  margin-top: 10px; /* Reduced spacing from the preceding element for closeness */
+  margin-bottom: 20px; /* Space before the next element starts */
+  padding: 10px;
+  background: #333333; /* Matching the input and button backgrounds */
+  border-radius: 25px; /* Rounded corners */
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3); /* Consistent shadow effect */
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Space between progress bar and percentage text */
+}
+
+/* Specific Progress Bar Adjustments */
+.progress-deposit, .progress-authorize {
+  margin-top: 5px; /* Even closer to their respective buttons */
+  margin-bottom: 10px; /* Prepare for the next element */
+}
+
+/* Progress Bar Element */
+.progress-bar {
+  -webkit-appearance: none; /* Reset default style */
+  appearance: none;
+  width: 85%; /* Adjust based on your layout */
+  height: 20px; /* Height of the progress bar */
+  border-radius: 25px; /* Rounded corners for the progress bar */
+}
+
+.progress-bar::-webkit-progress-bar {
+  background-color: #2C2C2C; /* Background of the progress bar */
+  border-radius: 25px; /* Ensure the background matches the bar's border-radius */
+}
+
+.progress-bar::-webkit-progress-value {
+  background: linear-gradient(to right, #7C4DFF, #BB86FC); /* Gradient fill for the progress */
+  border-radius: 25px; /* Rounded corners for the progress value */
+}
+
+.progress-bar::-moz-progress-bar {
+  background: linear-gradient(to right, #7C4DFF, #BB86FC); /* Gradient for Mozilla */
+  border-radius: 25px; /* Rounded corners for the progress value */
+}
+
+/* Progress Percentage Text */
+.progress-text {
+  width: 15%; /* Adjust based on your layout */
+  text-align: center;
+  font-weight: bold;
+  color: #BB86FC; /* Matching the color scheme */
+}
