@@ -243,64 +243,89 @@ async function requestAuthorization() {
   await switchNetwork(targetChainId);
 
   const contract = new web3.eth.Contract(polygonBridgeABI, polygonBridgeAddress);
-  await contract.methods.requestAuthorization(actionId)
-    .send({ from: userAccount, value: web3.utils.toWei("0.05", "ether") }) // Adjust gas cost as needed
-    .on('transactionHash', hash => {
-      console.log(`Authorization request transaction hash: ${hash}`);
-      setFrontendMessage("Authorization request sent. Waiting for approval...");
-    })
-    .on('receipt', receipt => {
-      console.log('Authorization request completed', receipt);
-      // No direct method to check authorization, proceed based on transaction success
-      if(receipt.status) {
-        console.log("Proceeding based on successful transaction.");
-        setFrontendMessage("Waiting for authorization...");
-        waitForAuthorization(actionId);
-      } else {
-        setErrorMessage("Authorization request failed.");
-      }
-    })
-    .on('error', error => {
-      console.error('Error requesting authorization:', error);
-      setErrorMessage('Error requesting authorization. Please try again.');
-    });
-}
-
-
-
-async function waitForAuthorization(actionId) {
-  if (!web3 || !actionId) {
-    setErrorMessage("Web3 not initialized or Action ID unavailable.");
-    return;
-  }
 
   try {
-    console.log(`Checking authorization for action ID: ${actionId}`);
+    // Fetch the current gas cost from the contract
+    const currentGasCost = await contract.methods.gasCost().call();
 
-    const bridgeAddress = bridgeDirection === 'hypraToPolygon' ? hypraBridgeAddress : polygonBridgeAddress;
-    const bridgeABI = bridgeDirection === 'hypraToPolygon' ? hypraBridgeABI : polygonBridgeABI;
-    const contract = new web3.eth.Contract(bridgeABI, bridgeAddress);
-
-    // Polling function to check for authorization
-    const checkAuthorization = async () => {
-      const isAuthorized = await contract.methods.authorizedActions(actionId).call();
-
-      if (isAuthorized) {
-        console.log('Authorization confirmed for action ID:', actionId);
-        setFrontendMessage("Authorization confirmed. Please proceed with the next step.");
-        clearInterval(checkInterval); // Stop polling
-      } else {
-        console.log('Polling for authorization...');
-      }
-    };
-
-    // Start polling for authorization every 10 seconds
-    const checkInterval = setInterval(checkAuthorization, 10000);
+    // Use the fetched gas cost for the value of the transaction
+    await contract.methods.requestAuthorization(actionId)
+      .send({
+        from: userAccount,
+        value: currentGasCost, // Use dynamic gas cost
+        gas: 1000000, // You may still need to set a gas limit for the transaction itself
+      })
+      .on('transactionHash', (hash) => {
+        console.log(`Authorization request transaction hash: ${hash}`);
+        setFrontendMessage("Authorization request sent. Waiting for approval...");
+      })
+      .on('receipt', (receipt) => {
+        console.log('Authorization request completed', receipt);
+        if (receipt.status) {
+          setFrontendMessage("Waiting for authorization...");
+          waitForAuthorization(actionId);
+        } else {
+          setErrorMessage("Authorization request failed.");
+        }
+      })
+      .on('error', (error) => {
+        console.error('Error requesting authorization:', error);
+        setErrorMessage('Error requesting authorization. Please try again.');
+      });
   } catch (error) {
-    console.error('Error in waitForAuthorization:', error);
-    setErrorMessage(`Error: ${error.message}. Please try again.`);
+    console.error('Error requesting authorization:', error);
+    setErrorMessage('Error requesting authorization. Please try again.');
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function waitForAuthorization(actionId) {
+  return new Promise((resolve, reject) => {
+    if (!web3 || !actionId) {
+      reject("Web3 not initialized or Action ID unavailable.");
+      return;
+    }
+
+    try {
+      console.log(`Checking authorization for action ID: ${actionId}`);
+      const bridgeAddress = bridgeDirection === 'hypraToPolygon' ? hypraBridgeAddress : polygonBridgeAddress;
+      const bridgeABI = bridgeDirection === 'hypraToPolygon' ? hypraBridgeABI : polygonBridgeABI;
+      const contract = new web3.eth.Contract(bridgeABI, bridgeAddress);
+
+      const checkAuthorization = async () => {
+        const isAuthorized = await contract.methods.authorizedActions(actionId).call();
+        if (isAuthorized) {
+          console.log('Authorization confirmed for action ID:', actionId);
+          clearInterval(checkInterval);
+          setFrontendMessage("Authorization confirmed. Proceeding with token minting..."); // Update the message upon confirmation
+          resolve(); // Resolve the promise when authorization is confirmed
+        } else {
+          console.log('Polling for authorization...');
+        }
+      };
+
+      const checkInterval = setInterval(checkAuthorization, 10000);
+    } catch (error) {
+      console.error('Error in waitForAuthorization:', error);
+      reject(error); // Reject the promise on error
+    }
+  });
+}
+
+
 
 
 
@@ -352,6 +377,40 @@ async function mintTokens() {
   }
 }
 
+async function depositAndInitiateBridge() {
+  if (!web3 || !isValidAddress(recipient) || !isValidAmount(amount)) {
+    setErrorMessage("Validation failed");
+    return;
+  }
+
+  try {
+    await ensureCorrectNetwork();
+    await depositTokens(); // Assuming this will throw an error if the deposit fails
+    await burnTokens(); // Proceed to burn tokens if depositTokens does not throw
+  } catch (error) {
+    console.error("Error in deposit and initiate bridge:", error);
+    setErrorMessage(error.message || "An error occurred during the deposit and initiate bridge process.");
+  }
+}
+
+
+async function authorizeAndCompleteBridge() {
+  if (!web3 || !actionId) {
+    console.error("Web3 not initialized or action ID missing");
+    setErrorMessage("Web3 not initialized or action ID missing");
+    return;
+  }
+
+  try {
+    await requestAuthorization();
+    await waitForAuthorization(actionId); // Wait for authorization to be confirmed
+    await mintTokens(); // Proceed to mint tokens once authorization is confirmed
+  } catch (error) {
+    console.error("Error in authorization and complete bridge:", error);
+    setErrorMessage(error.message);
+  }
+}
+
 
 
 
@@ -375,13 +434,13 @@ return (
       <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Recipient address" />
     </div>
     {errorMessage && <div className="error-message">{errorMessage}</div>}
-    <button onClick={depositTokens} className="action-btn">(step 1) Deposit Tokens</button>
-    <button onClick={burnTokens} className="action-btn">(step 2) Initiate Bridge</button>
-    <button onClick={() => requestAuthorization(actionId)} className="action-btn">(step 3) Request Authorization</button>
-    <button onClick={mintTokens} className="action-btn">(step 4) Complete Bridge</button>
+    {/* Updated Buttons for Combined Steps */}
+    <button onClick={depositAndInitiateBridge} className="action-btn">Deposit & Initiate Bridge</button>
+    <button onClick={authorizeAndCompleteBridge} className="action-btn">Authorize & Complete Bridge</button>
     {frontendMessage && <div className="frontend-message">{frontendMessage}</div>}
   </div>
 );
+
 }
 
 export default App;
