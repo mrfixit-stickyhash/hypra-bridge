@@ -28,6 +28,10 @@ function App() {
   const [bridgeNonce, setBridgeNonce] = useState('');
   const [actionId, setActionId] = useState('');
   const [frontendMessage, setFrontendMessage] = useState(''); // State to hold frontend messages
+  const [depositProgress, setDepositProgress] = useState(0); // Progress for deposit and initiate bridge
+  const [authorizeProgress, setAuthorizeProgress] = useState(0); // Progress for authorize and complete bridge
+
+
 
 
   useEffect(() => {
@@ -378,6 +382,9 @@ async function mintTokens() {
 }
 
 async function depositAndInitiateBridge() {
+  setDepositProgress(0); // Reset deposit progress
+  setErrorMessage('');
+
   if (!web3 || !isValidAddress(recipient) || !isValidAmount(amount)) {
     setErrorMessage("Validation failed");
     return;
@@ -385,16 +392,23 @@ async function depositAndInitiateBridge() {
 
   try {
     await ensureCorrectNetwork();
-    await depositTokens(); // Assuming this will throw an error if the deposit fails
-    await burnTokens(); // Proceed to burn tokens if depositTokens does not throw
+    setDepositProgress(25); // Example progress update after ensuring network
+
+    await depositTokens();
+    setDepositProgress(50); // Update progress after deposit
+
+    await burnTokens();
+    setDepositProgress(100); // Complete the deposit progress
   } catch (error) {
     console.error("Error in deposit and initiate bridge:", error);
     setErrorMessage(error.message || "An error occurred during the deposit and initiate bridge process.");
   }
 }
 
-
 async function authorizeAndCompleteBridge() {
+  setAuthorizeProgress(0); // Reset authorize progress
+  setErrorMessage('');
+
   if (!web3 || !actionId) {
     console.error("Web3 not initialized or action ID missing");
     setErrorMessage("Web3 not initialized or action ID missing");
@@ -403,13 +417,20 @@ async function authorizeAndCompleteBridge() {
 
   try {
     await requestAuthorization();
+    setAuthorizeProgress(25); // Update progress after request authorization
+
+    // Assuming requestAuthorization is asynchronous and takes some time
     await waitForAuthorization(actionId); // Wait for authorization to be confirmed
+    setAuthorizeProgress(75); // Update progress after authorization confirmed
+
     await mintTokens(); // Proceed to mint tokens once authorization is confirmed
+    setAuthorizeProgress(100); // Complete the authorize progress
   } catch (error) {
     console.error("Error in authorization and complete bridge:", error);
     setErrorMessage(error.message);
   }
 }
+
 
 
 
@@ -433,13 +454,27 @@ return (
       <input type="text" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount to transfer" />
       <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Recipient address" />
     </div>
+    {/* Deposit & Initiate Bridge Button and Progress Bar */}
+    <button onClick={depositAndInitiateBridge} className="action-btn">(step 1) Deposit & Initiate Bridge</button>
+    {depositProgress > 0 && (
+      <div className="progress-container progress-deposit">
+        <progress value={depositProgress} max="100" className="progress-bar"></progress>
+        <p className="progress-text">Step 1: {depositProgress}%</p>
+      </div>
+    )}
+    {/* Authorize & Complete Bridge Button and Progress Bar */}
+    <button onClick={authorizeAndCompleteBridge} className="action-btn">(step 2) Authorize & Complete Bridge</button>
+    {authorizeProgress > 0 && (
+      <div className="progress-container progress-authorize">
+        <progress value={authorizeProgress} max="100" className="progress-bar"></progress>
+        <p className="progress-text">Step 2: {authorizeProgress}%</p>
+      </div>
+    )}
     {errorMessage && <div className="error-message">{errorMessage}</div>}
-    {/* Updated Buttons for Combined Steps */}
-    <button onClick={depositAndInitiateBridge} className="action-btn">Deposit & Initiate Bridge</button>
-    <button onClick={authorizeAndCompleteBridge} className="action-btn">Authorize & Complete Bridge</button>
     {frontendMessage && <div className="frontend-message">{frontendMessage}</div>}
   </div>
 );
+
 
 }
 
