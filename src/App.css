@@ -422,8 +422,8 @@ input[type="text"].input-error:focus {
   }
 
   .header-button, .small-action-btn, .connect-wallet-btn {
-    width: auto;
-    margin: 8px;
+    width: 100%;  /* Adjust width to full to prevent overflow */
+    margin: 8px 0; /* Adjust margin for better spacing */
   }
 
   .header-instruction {
@@ -445,6 +445,6 @@ input[type="text"].input-error:focus {
   }
 
   .app-container {
-    margin-top: 100px; /* Increase top margin to accommodate the larger header */
+    margin-top: 220px; /* Increased margin-top to accommodate the expanded header */
   }
 }
