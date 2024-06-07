@@ -445,6 +445,6 @@ input[type="text"].input-error:focus {
   }
 
   .app-container {
-    margin-top: 350px; /* Increased margin-top to accommodate the expanded header */
+    margin-top: 500px; /* Increased margin-top to accommodate the expanded header */
   }
 }
