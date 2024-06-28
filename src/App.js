@@ -42,10 +42,9 @@ function App() {
 
   
   const fetchBridgeLimits = useCallback(async (action) => {
-    // Check if web3 and userAccount are ready
-    if (!web3 || !userAccount) {
-      console.log("Web3 is not initialized or user account is not set.");
-      return '0'; // Return early to prevent further execution
+    if (!web3) {
+      console.error("Web3 is not initialized");
+      return '0';
     }
 
     const hypraXERC20Address = '0x8ADf314372e80a1010F738260412b0E6bf64c5CA';
@@ -59,20 +58,26 @@ function App() {
         console.log("Calling burningCurrentLimitOf for action:", action);
         const limit = await xERC20Contract.methods.burningCurrentLimitOf(bridgeDirection === 'hypraToPolygon' ? hypraBridgeAddress : polygonBridgeAddress).call();
         console.log(`Burning limit: ${limit}`);
-        return web3.utils.fromWei(limit, 'ether'); // Convert to readable format
+        return web3.utils.fromWei(limit, 'ether'); // Convert BN to string
       } else if (action === 'mint') {
         console.log("Calling mintingCurrentLimitOf for action:", action);
         const limit = await xERC20Contract.methods.mintingCurrentLimitOf(bridgeDirection === 'hypraToPolygon' ? hypraBridgeAddress : polygonBridgeAddress).call();
         console.log(`Minting limit: ${limit}`);
-        return web3.utils.fromWei(limit, 'ether'); // Convert to readable format
+        return web3.utils.fromWei(limit, 'ether'); // Convert BN to string
       }
     } catch (error) {
       console.error("Failed to fetch limits:", error);
+      setErrorMessage(`Failed to fetch limits: ${error.message}`);
+
+      if (error.data) {
+        console.error("Error data:", error.data);
+      }
+
       return '0';
     }
-}, [web3, userAccount, bridgeDirection]);
+  }, [web3, bridgeDirection]);
 
-useEffect(() => {
+  useEffect(() => {
     const initWeb3 = async () => {
       if (window.ethereum) {
         try {
@@ -87,41 +92,8 @@ useEffect(() => {
       }
     };
     initWeb3();
-}, []);
+  }, []);
 
-useEffect(() => {
-    if (web3 && userAccount) { // Ensure both web3 and userAccount are available
-      console.log("Checking and fetching initial limits...");
-      const fetchInitialLimits = async () => {
-        const burnLimit = await fetchBridgeLimits('burn');
-        const mintLimit = await fetchBridgeLimits('mint');
-        setBridgeLimits({ burnLimit, mintLimit });
-      };
-      fetchInitialLimits();
-    }
-}, [web3, userAccount, fetchBridgeLimits]); // Add fetchBridgeLimits to dependency array if using useCallback
-
-useEffect(() => {
-    console.log("Bridge Limits updated:", bridgeLimits);
-}, [bridgeLimits]);
-
-useEffect(() => {
-    const fetchLimitsOnNetworkChange = async () => {
-      if (!web3 || !userAccount) {
-        console.log("Skipping limit fetch due to lack of web3 or user account.");
-        return;
-      }
-
-      console.log("Network change detected, fetching new limits...");
-      const burnLimit = await fetchBridgeLimits('burn');
-      const mintLimit = await fetchBridgeLimits('mint');
-      setBridgeLimits({ burnLimit, mintLimit });
-    };
-
-    fetchLimitsOnNetworkChange();
-}, [web3, userAccount, fetchBridgeLimits, networkChanged]); // Added 'networkChanged' to trigger this effect when networks are switched
-
-  
 
   const fetchTokenBalance = useCallback(async (tokenAddress) => {
     if (!web3 || !userAccount) {
@@ -159,6 +131,32 @@ useEffect(() => {
   }, [web3, userAccount, fetchBalances, networkChanged]);
   
   
+  useEffect(() => {
+    const fetchLimits = async () => {
+      const burnLimit = await fetchBridgeLimits('burn');
+      const mintLimit = await fetchBridgeLimits('mint');
+      setBridgeLimits({ burnLimit, mintLimit });
+    };
+  
+    if (web3 && userAccount && bridgeDirection) {
+      fetchLimits();
+    }
+  }, [web3, userAccount, bridgeDirection, fetchBridgeLimits, networkChanged]);  // Add userAccount as a dependency
+
+  
+
+  useEffect(() => {
+    if (window.ethereum) {
+      console.log("Web3 is available, waiting for wallet connection...");
+      // We're not creating a web3Instance here anymore because it's set in connectWallet
+    } else {
+      setErrorMessage("Please install MetaMask to use this application.");
+    }
+  }, []);
+  
+  
+
+
   useEffect(() => {
     let checkInterval = null;
   
@@ -297,12 +295,14 @@ async function addHYPToken() {
 }
 
 
- const connectWallet = async () => {
+const connectWallet = async () => {
   if (window.ethereum) {
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       setUserAccount(accounts[0]);
       setRecipient(accounts[0]); // Prefill the recipient address with the user's address
+      const web3Instance = new Web3(window.ethereum);
+      setWeb3(web3Instance); // Set web3 now that the wallet is connected
     } catch (error) {
       console.error("Error connecting to MetaMask:", error);
       setErrorMessage(error.message || "An error occurred during the wallet connection.");
@@ -311,6 +311,7 @@ async function addHYPToken() {
     alert("Please install MetaMask to use this feature.");
   }
 };
+
   
 
   async function switchNetwork(targetChainId) {
@@ -710,17 +711,6 @@ async function authorizeAndCompleteBridge() {
   }
 }
 
-if (!userAccount) {
-  return (
-    <div className="connect-screen">
-      <h2>Hypra Bridge</h2> {/* Added title above the button */}
-      <button onClick={connectWallet} className="connect-wallet-btn">
-        Connect Wallet
-      </button>
-    </div>
-  );
-}
-
 return (
   <>
     <header className="app-header">
@@ -773,18 +763,22 @@ return (
         </div>
       )}
 
-<div className="input-group">
-  <label>Bridge Direction:</label>
-  <select value={bridgeDirection} onChange={(e) => setBridgeDirection(e.target.value)}>
-    <option value="hypraToPolygon">Hypra to Polygon</option>
-    <option value="polygonToHypra">Polygon to Hypra</option>
-  </select>
-</div>
+      <div className="input-group">
+        <label>Bridge Direction:</label>
+        <select value={bridgeDirection} onChange={(e) => setBridgeDirection(e.target.value)}>
+          <option value="hypraToPolygon">Hypra to Polygon</option>
+          <option value="polygonToHypra">Polygon to Hypra</option>
+        </select>
+      </div>
 
-<div className="input-group">
+      <div className="input-group">
+  {!userAccount && (
+    <p className="warning-message">Please connect your wallet to proceed.</p>
+  )}
   <input 
     type="text" 
-    value={amount} 
+    value={amount}
+    readOnly={!userAccount}  // Makes the field read-only if the wallet is not connected
     onChange={(e) => {
       setAmount(e.target.value);
       if (parseFloat(e.target.value) > parseFloat(bridgeDirection === 'hypraToPolygon' ? bridgeLimits.burnLimit : bridgeLimits.mintLimit)) {
@@ -797,9 +791,10 @@ return (
   />
   <input 
     type="text" 
-    value={userAccount} // This should be userAccount which holds the connected wallet address
-    readOnly // This makes the input field read-only
-    placeholder="Connect Wallet" // Adjusted placeholder text to indicate this is the recipient address
+    value={recipient}
+    readOnly={!userAccount}  // Optionally make this read-only too until wallet is connected
+    onChange={(e) => setRecipient(e.target.value)} 
+    placeholder={userAccount ? "Enter recipient address" : "Connect wallet to set recipient"}
   />
 </div>
 
